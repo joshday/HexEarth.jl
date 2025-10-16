@@ -1,11 +1,9 @@
 module HexEarthMakieExt
 
-using HexEarth
-using Makie
-
+using Makie, HexEarth
 import GeoInterface as GI
 
-GI.@enable_makie Makie HexEarth.H3IndexType
-GI.@enable_makie Makie HexEarth.LatLon
+GI.@enable_makie Makie H3IndexType
+GI.@enable_makie Makie LatLon
 
 end

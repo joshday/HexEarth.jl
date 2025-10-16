@@ -15,12 +15,5 @@ using Test
             @test HexEarth.resolution(cell) == res
             @test HexEarth.is_cell(cell)
         end
-
-
-        # @test H.resolution(idx) == 15
-        # @test H.is_cell(idx) == true
-        # @test H.is_directed_edge(idx) == false
-        # @test H.is_vertex(idx) == false
-        # @test H.is_pentagon(idx) == false
     end
 end

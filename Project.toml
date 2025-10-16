@@ -9,15 +9,15 @@ GeoFormatTypes = "68eda718-8dee-11e9-39e7-89f7f65f511f"
 GeoInterface = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
 H3 = "f62fece2-b996-571a-b4c9-e662aba1c617"
 H3_jll = "60c8821e-da38-5dbd-93c7-983f1e6d69be"
+Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"
 StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 
 [weakdeps]
-GMT = "5752ebe1-31b9-557e-87aa-f909b540aa54"
 Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 
 [extensions]
-HexEarthGMTExt = ["GMT"]
 HexEarthMakieExt = ["Makie", "GeoInterface"]
+HexEarthRastersExt = ["Rasters", "GeoInterface"]
 
 [compat]
 Extents = "0.1.6"
@@ -26,6 +26,7 @@ GeoInterface = "1.6.0"
 H3 = "0.3.2"
 H3_jll = "4.2.1"
 Makie = "0.24.6"
+Rasters = "0.14.6"
 StyledStrings = "1.11.0"
 julia = "1.11"
 

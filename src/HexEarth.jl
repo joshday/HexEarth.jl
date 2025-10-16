@@ -6,16 +6,19 @@ using StyledStrings: @styled_str
 
 import GeoInterface as GI
 import GeoFormatTypes as GFT
+import Rasters as R
 import H3.API as API
 import Extents
 
-export LatLon, Cell, Vertex
+export
+    LatLon, Cell, Vertex,
+    cells, geocode, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes
 # In this package:
-#  - latitude/longitude is always in degrees
-#  - distance is always in meters
-#  - bearings are always in degrees clockwise from North
+#  - latitude/longitude units == degrees
+#  - distance units == meters
+#  - bearing units == degrees clockwise from North
 
 #-----------------------------------------------------------------------------# LatLon
 """
@@ -54,7 +57,7 @@ const R = 6_371_000
 Calculate the great-circle distance (meters) between two LatLon points using the Haversine formula.
 """
 function haversine(a::LatLon{T}, b::LatLon{T}) where {T <: Real}
-    x = sind((b.lat - a.lat) / 2) ^ 2 + cosd(a.lat) * cosd(b.lat) * sind((b.lon - a.lon) / 2)^2
+    x = sind((b.lat - a.lat) / 2) ^ 2 + cosd(a.lat) * cosd(b.lat) * sind((b.lon - a.lon) / 2) ^ 2
     return 2R * asin(min(sqrt(x), one(x)))
 end
 
@@ -63,13 +66,14 @@ end
 
 Find destination point given starting point (LatLon), bearing (clockwise from North), and distance (m)
 """
-function destination(a::LatLon, bearing°, dist)
+function destination(a::LatLon, bearing°, m)
     ϕ1, λ1 = a.lat, a.lon
-    δ = rad2deg(dist / R)
+    δ = rad2deg(m / R)
     ϕ2 = asind(sind(ϕ1) * cosd(δ) + cosd(ϕ1) * sind(δ) * cosd(bearing°))
     λ2 = λ1 + atand(sind(bearing°) * sind(δ) * cosd(ϕ1), cosd(δ) - sind(ϕ1) * sind(ϕ2))
     LatLon(ϕ2, λ2)
 end
+
 
 #-----------------------------------------------------------------------------# extent
 """
@@ -87,9 +91,6 @@ function Extents.extent(o::LatLon; n=1000, s=1000, e=1000, w=1000)
     return Extents.Extent(X=(W, E), Y=(S, N))
 end
 Extents.extent(o::LatLon, meters) = Extents.extent(o; n=meters, s=meters, e=meters, w=meters)
-
-#-----------------------------------------------------------------------------# geocode
-geocode(x...; kw...) = error("GMT.jl is required for geocoding. Please `import GMT` and try again.")
 
 #-----------------------------------------------------------------------------# H3.API wrappers
 """
@@ -154,7 +155,7 @@ struct Cell <: H3IndexType
     index::UInt64
     Cell(x::UInt64) = new(check(is_cell, x))
 end
-Cell(o::LatLon, resolution=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(o.lat), deg2rad(o.lon)), resolution))
+Cell(o::LatLon, resolution=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(o.lat), deg2rad(o.lon)), Int(resolution)))
 Cell(x::AbstractString) = Cell(geocode(x))
 
 GI.geomtrait(::Cell) = GI.PolygonTrait()
@@ -175,6 +176,8 @@ vertices(o::Cell) = Vertex.(API.cellToVertexes(o.index))
 const vertexes = vertices
 
 area_m2(o::Cell) = API.cellAreaM2(o.index)  # in m²
+
+grid_distance(a::Cell, b::Cell) = API.gridDistance(a.index, b.index)
 
 """
     grid_path_cells(a::Cell, b::Cell)
@@ -201,6 +204,11 @@ Per h3 documentation, "This function may fail if pentagonal distortion is encoun
 """
 grid_ring_unsafe(o::Cell, k::Integer) = Cell.(API.gridRingUnsafe(o.index, k))
 
+haversine(a::Cell, b::Cell) = haversine(GI.centroid(a), GI.centroid(b))
+
+destination(a::Cell, bearing°, m) = Cell(destination(GI.centroid(a), bearing°, m), resolution(a))
+
+
 Base.getindex(o::Cell, i::Integer) = Vertex(API.cellToVertex(o.index, i))
 
 Base.getindex(o::Cell, i::Integer, j::Integer) = GridIJ(o)[i, j]
@@ -214,7 +222,7 @@ Base.getindex(o::Cell, i::Integer, j::Integer, k::Integer) = GridIJK(o)[i, j, k]
 
 Return a `Vector{Cell}` covering the given geometry at the specified H3 resolution (default 10).
 """
-cells(geom, res::Integer = 10) = cells(GI.trait(geom), geom, res)
+cells(geom, res::Integer = 10; kw...) = cells(GI.trait(geom), geom, res; kw...)
 
 cells(trait::GI.PointTrait, geom, res::Integer) = [Cell(LatLon(GI.coordinates(trait, geom)...), res)]
 
@@ -262,17 +270,51 @@ function cells(trait::GI.MultiPolygonTrait, geom, res::Integer)
     reduce(union, cells.(GI.getpolygon(geom), res))
 end
 
-#-----------------------------------------------------------------------------# GridIJ and GridIJK
+function cells(ex::Extents.Extent, res::Integer)
+    sw = LatLon(ex.Y[1], ex.X[1])
+    ne = LatLon(ex.Y[2], ex.X[2])
+    nw = LatLon(ex.Y[2], ex.X[1])
+    se = LatLon(ex.Y[1], ex.X[2])
+    cells(GI.Polygon([GI.LineString([sw, nw, ne, se, sw])]), res)
+end
+
+
+
+#-----------------------------------------------------------------------------# GridIJ
+"""
+    GridIJ(origin::Cell)
+
+Create a 2D grid of cells indexed by (i, j) coordinates relative to an origin cell.  Axes are 120° apart.
+
+- Unlike libh3, (0, 0) will always correspond to the origin cell.
+- Pentagon distortion may result in some cells having multiple (i, j) coordinates.
+- See also `GridIJK`.
+"""
 struct GridIJ
     origin::Cell
     ij::API.CoordIJ
 end
 GridIJ(o::Cell) = GridIJ(o, API.cellToLocalIj(o.index, o.index))
 Base.show(io::IO, o::GridIJ) = print(io, styled"GridIJ - origin: $(o.origin)")
+
 function Base.getindex(grid::GridIJ, i::Integer, j::Integer)
     Cell(API.localIjToCell(grid.origin.index, API.CoordIJ(i + grid.ij.i, j + grid.ij.j)))
 end
 
+function Base.getindex(grid::GridIJ, o::Cell)
+    ij = API.cellToLocalIj(grid.origin.index, o.index)
+    return (ij.i - grid.ij.i, ij.j - grid.ij.j)
+end
+
+#-----------------------------------------------------------------------------# GridIJK
+"""
+    GridIJK(origin::Cell)
+
+Create a 2D grid of cells indexed by (i, j, k) coordinates relative to an origin cell.
+
+- Unlike libh3, (0, 0, 0) will always correspond to the origin cell.
+- Note there are multiple valid (i, j, k) coordinates for a given cell.
+"""
 struct GridIJK
     origin::Cell
     ijk::API.CoordIJK
@@ -298,6 +340,9 @@ function Base.show(io::IO, o::Vertex)
 end
 
 LatLon(o::Vertex) = LatLon(API.vertexToLatLng(o.index))
+
+
+#-----------------------------------------------------------------------------# Makie interop
 
 
 end # module
