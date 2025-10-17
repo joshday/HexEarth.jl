@@ -1,24 +1,22 @@
 module HexEarthRastersExt
 
-import Rasters as R
-import HexEarth as H
-import GeoInterface as GI
+import Rasters
+import HexEarth: cells, LatLon, Cell
 
-# cells(r::R.AbstractRaster, res::Integer=10; dropmissing::Bool=true) = cells(GI.RasterTrait(), r, res; dropmissing)
 
-function H.cells(trait::GI.RasterTrait, geom, res::Integer; dropmissing::Bool = true)
-    x = R.lookup(r, R.X)
-    y = R.lookup(r, R.Y)
-    out = dropmissing ? Dict{H.Cell, Vector{Base.nonmissingtype(T)}}() : Dict{H.Cell, Vector{T}}()
+function cells(r::Rasters.AbstractRaster{T, 2}, res::Integer = 10; dropmissing::Bool = true) where {T}
+    x = Rasters.lookup(r, Rasters.X)
+    y = Rasters.lookup(r, Rasters.Y)
+    out = dropmissing ? Dict{Cell, Vector{Base.nonmissingtype(T)}}() : Dict{Cell, Vector{T}}()
 
-    for i in 1:size(r, 1), j in 1:size(r, 2)
+    for i in eachindex(x), j in eachindex(y)
         val = r[i, j]
         if dropmissing && ismissing(val)
             # Skip missing values
         else
-            lat = x[i]
-            lon = y[j]
-            cell = H.Cell(H.LatLon(lat, lon), resolution)
+            lon = x[i]
+            lat = y[j]
+            cell = Cell((lat, lon), res)
             v = get!(out, cell, T[])
             push!(v, val)
         end

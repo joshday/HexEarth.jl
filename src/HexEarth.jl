@@ -1,96 +1,40 @@
 module HexEarth
 
 using H3
-using H3_jll
 using StyledStrings: @styled_str
 
 import GeoInterface as GI
 import GeoFormatTypes as GFT
-import Rasters as R
-import H3.API as API
+import GeometryOps as GO
 import Extents
 
+import H3.API as API
+import H3.Lib: LatLng
+
+
 export
-    LatLon, Cell, Vertex,
+    Cell, Vertex,
     cells, geocode, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes
 # In this package:
+#  - All coordinates are assumed to be in EPSG:4326 (WGS84 lat/lon in degrees)
 #  - latitude/longitude units == degrees
 #  - distance units == meters
 #  - bearing units == degrees clockwise from North
 
-#-----------------------------------------------------------------------------# LatLon
-"""
-    LatLon(lat::T, lon::T) where {T<:Real}
-    LatLon(; lat, lon)
-    LatLon(::Tuple{<:Real, <:Real})
-    LatLon(::AbstractVector{<:Real})
+#-----------------------------------------------------------------------------# Geo
+# Essentially all things not hexagon-related
+include("Geo.jl")
+using .Geo
+import .Geo: destination, haversine, bearing, point2extent
 
-A simple struct to represent a latitude/longitude pair in *degrees* (EPSG:4326).
-"""
-struct LatLon{T}
-    lat::T
-    lon::T
-end
-LatLon(o::API.LatLng) = LatLon(rad2deg(o.lat), rad2deg(o.lng))
-LatLon(; lat, lon) = LatLon(lat, lon)
-LatLon(x::AbstractVector{<:Real}) = length(x) == 2 ? LatLon(x[2], x[1]) : throw(ArgumentError("Expected 2-element vector, got length $(length(x))"))
-LatLon(x::Tuple{<:Real, <:Real}) = LatLon(x[2], x[1])
-
-Base.NamedTuple((; lon, lat)::LatLon) = (x=lon, y=lat)
-Base.show(io::IO, o::LatLon) = print(io, NamedTuple(o))
-
-H3.Lib.LatLng(o::LatLon) = H3.Lib.LatLng(deg2rad(o.lat), deg2rad(o.lon))
-
-GI.isgeometry(::LatLon) = true
-GI.geomtrait(::LatLon) = GI.PointTrait()
-GI.coordinates(::GI.PointTrait, o::LatLon) = (o.lon, o.lat)
-GI.getcoord(::GI.PointTrait, o::LatLon, i::Integer) = GI.coordinates(o)[i]
-GI.ncoord(::GI.PointTrait, ::LatLon) = 2
-
-"Approximate radius of the earth in meters (WGS84)."
-const R = 6_371_000
-
-"""
-    haversine(a::LatLon, b::LatLon)
-Calculate the great-circle distance (meters) between two LatLon points using the Haversine formula.
-"""
-function haversine(a::LatLon{T}, b::LatLon{T}) where {T <: Real}
-    x = sind((b.lat - a.lat) / 2) ^ 2 + cosd(a.lat) * cosd(b.lat) * sind((b.lon - a.lon) / 2) ^ 2
-    return 2R * asin(min(sqrt(x), one(x)))
-end
-
-"""
-    destination(a::LatLon, bearing°, dist_m)
-
-Find destination point given starting point (LatLon), bearing (clockwise from North), and distance (m)
-"""
-function destination(a::LatLon, bearing°, m)
-    ϕ1, λ1 = a.lat, a.lon
-    δ = rad2deg(m / R)
-    ϕ2 = asind(sind(ϕ1) * cosd(δ) + cosd(ϕ1) * sind(δ) * cosd(bearing°))
-    λ2 = λ1 + atand(sind(bearing°) * sind(δ) * cosd(ϕ1), cosd(δ) - sind(ϕ1) * sind(ϕ2))
-    LatLon(ϕ2, λ2)
-end
-
-
-#-----------------------------------------------------------------------------# extent
-"""
-    Extents.extent(o::LatLon; n=1000, s=1000, e=1000, w=1000)
-    Extents.extent(o::LatLon, meters)
-
-Create a bounding box (Extents.Extent) around a LatLon point `o`, extending `n`, `s`, `e`, and `w` meters in each direction .
-
-"""
-function Extents.extent(o::LatLon; n=1000, s=1000, e=1000, w=1000)
-    N = destination(o, 0, n).lat
-    E = destination(o, 90, e).lon
-    S = destination(o, 180, s).lat
-    W = destination(o, 270, w).lon
-    return Extents.Extent(X=(W, E), Y=(S, N))
-end
-Extents.extent(o::LatLon, meters) = Extents.extent(o; n=meters, s=meters, e=meters, w=meters)
+#-----------------------------------------------------------------------------# H3.Lib.LatLng
+GI.isgeometry(::LatLng) = true
+GI.geomtrait(::LatLng) = GI.PointTrait()
+GI.coordinates(::GI.PointTrait, o::LatLng) = (rad2deg(o.lng), rad2deg(o.lat))
+GI.getcoord(::GI.PointTrait, o::LatLng, i::Integer) = GI.coordinates(o)[i]
+GI.ncoord(::GI.PointTrait, ::LatLng) = 2
 
 #-----------------------------------------------------------------------------# H3.API wrappers
 """
@@ -155,16 +99,23 @@ struct Cell <: H3IndexType
     index::UInt64
     Cell(x::UInt64) = new(check(is_cell, x))
 end
-Cell(o::LatLon, resolution=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(o.lat), deg2rad(o.lon)), Int(resolution)))
-Cell(x::AbstractString) = Cell(geocode(x))
+Cell(lonlat, res=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(lonlat[2]), deg2rad(lonlat[1])), Int(res)))
+
 
 GI.geomtrait(::Cell) = GI.PolygonTrait()
-GI.centroid(::GI.PolygonTrait, o::Cell) = LatLon(API.cellToLatLng(o.index))
-GI.coordinates(::GI.PolygonTrait, o::Cell) = (out = LatLon.(API.cellToBoundary(o.index)); return [out..., out[1]])
+GI.centroid(::GI.PolygonTrait, o::Cell) = (ll = API.cellToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
+GI.coordinates(::GI.PolygonTrait, o::Cell) = (out = GI.coordinates.(API.cellToBoundary(o.index)); return [out..., out[1]])
 GI.nhole(::GI.PolygonTrait, o::Cell) = 0
 GI.ngeom(::GI.PolygonTrait, o::Cell) = 1
 GI.getgeom(::GI.PolygonTrait, o::Cell, i::Integer) = GI.LineString(GI.coordinates(o))
 GI.area(::GI.PolygonTrait, o::Cell) = area_m2(o)  # in m²
+
+function GI.extent(::GI.PolygonTrait, o::Cell)
+    coords = GI.coordinates(o)
+    lons = getindex.(coords, 1)
+    lats = getindex.(coords, 2)
+    Extents.Extent(X=(minimum(lons), maximum(lons)), Y=(minimum(lats), maximum(lats)))
+end
 
 function Base.show(io::IO, o::Cell)
     shape = is_pentagon(o) ? styled"{bright_red:⬠}" : styled"{bright_green:⬡}"
@@ -206,7 +157,7 @@ grid_ring_unsafe(o::Cell, k::Integer) = Cell.(API.gridRingUnsafe(o.index, k))
 
 haversine(a::Cell, b::Cell) = haversine(GI.centroid(a), GI.centroid(b))
 
-destination(a::Cell, bearing°, m) = Cell(destination(GI.centroid(a), bearing°, m), resolution(a))
+destination(a::Cell, azimuth°, m) = Cell(destination(GI.centroid(a), azimuth°, m), resolution(a))
 
 
 Base.getindex(o::Cell, i::Integer) = Vertex(API.cellToVertex(o.index, i))
@@ -224,17 +175,38 @@ Return a `Vector{Cell}` covering the given geometry at the specified H3 resoluti
 """
 cells(geom, res::Integer = 10; kw...) = cells(GI.trait(geom), geom, res; kw...)
 
-cells(trait::GI.PointTrait, geom, res::Integer) = [Cell(LatLon(GI.coordinates(trait, geom)...), res)]
+cells(::Nothing, x::AbstractVector{<:Tuple{<:Real, <:Real}}, res::Integer) = unique!([Cell(x, res) for x in x])
+
+cells(trt::GI.PointTrait, geom, res::Integer) = [Cell(GI.coordinates(trt, geom), res)]
 
 function cells(trait::GI.MultiPointTrait, geom, res::Integer)
-    unique!(Cell.(LatLon.(GI.coordinates(trait, geom), res)))
+    unique!(Cell.(GI.coordinates(trait, geom), res))
+end
+
+function cells(trait::GI.LineTrait, geom, res::Integer; exact::Bool = false)
+    coords = GI.coordinates(trait, geom)
+    !exact && return grid_path_cells(Cell(coords[1], res), Cell(coords[2], res))
+    a = Cell(coords[1], res)
+    b = Cell(coords[2], res)
+    out = [a]
+    while true
+        a == b && break
+        for candidate in grid_ring_unsafe(a, 1)
+            if !GO.disjoint(geom, candidate)
+                a = candidate
+                push!(out, a)
+                break
+            end
+        end
+    end
+    return out
 end
 
 function cells(trait::GI.LineStringTrait, geom, res::Integer)
     coords = GI.coordinates(trait, geom)
-    out = [Cell(LatLon(reverse(coords[1])...), res)]
-    for (lon, lat) in @view coords[2:end]
-        c = Cell(LatLon(lat, lon), res)
+    out = [Cell((coords[1]), res)]
+    for coord in @view coords[2:end]
+        c = Cell(coord, res)
         path = grid_path_cells(out[end], c)
         append!(out, path[2:end])
     end
@@ -242,7 +214,12 @@ function cells(trait::GI.LineStringTrait, geom, res::Integer)
 end
 
 function cells(trait::GI.PolygonTrait, geom, res::Integer)
-    verts = [H3.Lib.LatLng.(LatLon.(ring)) for ring in GI.coordinates(trait, geom)]
+    verts = map(GI.coordinates(trait, geom)) do ring
+        map(ring) do coord
+            API.LatLng(deg2rad(coord[2]), deg2rad(coord[1]))
+        end
+    end
+    # verts = [H3.Lib.LatLng.(ring) for ring in GI.coordinates(trait, geom)]
     GC.@preserve verts begin
         geo_loops = H3.Lib.GeoLoop.(length.(verts), pointer.(verts))
     end
@@ -271,14 +248,12 @@ function cells(trait::GI.MultiPolygonTrait, geom, res::Integer)
 end
 
 function cells(ex::Extents.Extent, res::Integer)
-    sw = LatLon(ex.Y[1], ex.X[1])
-    ne = LatLon(ex.Y[2], ex.X[2])
-    nw = LatLon(ex.Y[2], ex.X[1])
-    se = LatLon(ex.Y[1], ex.X[2])
+    sw = (ex.Y[1], ex.X[1])
+    ne = (ex.Y[2], ex.X[2])
+    nw = (ex.Y[2], ex.X[1])
+    se = (ex.Y[1], ex.X[2])
     cells(GI.Polygon([GI.LineString([sw, nw, ne, se, sw])]), res)
 end
-
-
 
 #-----------------------------------------------------------------------------# GridIJ
 """
@@ -331,18 +306,13 @@ struct Vertex <: H3IndexType
     Vertex(x::UInt64) = new(check(is_vertex, x))
 end
 GI.geomtrait(::Vertex) = GI.PointTrait()
-GI.coordinates(::GI.PointTrait, o::Vertex) = LatLon(API.vertexToLatLng(o.index))
+GI.coordinates(::GI.PointTrait, o::Vertex) = (ll = API.cellToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
 GI.getcoord(::GI.PointTrait, o::Vertex, i::Integer) = GI.coordinates(o)[i]
+GI.ncoord(::GI.PointTrait, ::Vertex) = 2
 
 function Base.show(io::IO, o::Vertex)
     ll = styled"{bright_black:$(GI.coordinates(o))}"
     print(io, styled"{bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
 end
-
-LatLon(o::Vertex) = LatLon(API.vertexToLatLng(o.index))
-
-
-#-----------------------------------------------------------------------------# Makie interop
-
 
 end # module
