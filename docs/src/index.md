@@ -17,7 +17,7 @@ new_york = (-75.0, 43.0)
 
 cell = Cell(new_york, 10)
 
-HexEarth.area(cell)
+HexEarth.area(cell)  # meters ^ 2
 
 GI.centroid(cell)
 ```

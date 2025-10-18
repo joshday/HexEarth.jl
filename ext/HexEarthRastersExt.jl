@@ -1,11 +1,11 @@
 module HexEarthRastersExt
 
-import Rasters: AbstractRaster, X, Y, At
+import Rasters: AbstractRaster, X, Y, At, Near
 import HexEarth: cells, Cell, DataCells
 import GeoInterface as GI
 
 
-function cells(r::AbstractRaster{T, 2}, res::Integer = 10; dropmissing::Bool = true) where {T}
+function cells(r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
     out = dropmissing ? Dict{Cell, Vector{Base.nonmissingtype(T)}}() : Dict{Cell, Vector{T}}()
 
     for lon in r.dims[1], lat in r.dims[2]
@@ -18,5 +18,19 @@ function cells(r::AbstractRaster{T, 2}, res::Integer = 10; dropmissing::Bool = t
     end
     return DataCells(out)
 end
+
+function cells(mask, r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
+    x = cells(mask, res)
+    out = Dict{Cell, Vector{T}}()
+    for cell in x
+        lon, lat = GI.centroid(cell)
+        val = r[X(Near(lon)), Y(Near(lat))]
+        v = get!(out, cell, T[])
+        ismissing(val) && dropmissing && continue
+        push!(v, val)
+    end
+    return DataCells(out)
+end
+
 
 end

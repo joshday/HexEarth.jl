@@ -1,6 +1,7 @@
 module HexEarth
 
 using H3
+using Statistics
 using StyledStrings: @styled_str
 
 import GeoInterface as GI
@@ -336,6 +337,22 @@ GI.extent(::GI.PolygonTrait, o::DataCells) = reduce(Extents.union, GI.extent.(ke
 const VectorCells = DataCells{S} where {T, S <: AbstractVector{T}}
 get_values(o::DataCells, f) = [f(v) for v in values(o.data)]
 
+function interpolate_nearest!(o::DataCells, f = mean; max_distance = 10)
+    empty_cells = filter(kv -> isempty(kv[2]), o.data)
+    filled_cells = filter(kv -> !isempty(kv[2]), o.data)
+
+    for cell in keys(empty_cells)
+        for k in 1:max_distance
+            cells_in_ring = filter(kv -> grid_distance(kv[1], cell) == k, filled_cells)
+            isempty(cells_in_ring) && continue
+            val = only(f(collect(values(cells_in_ring))))
+            push!(o.data[cell], val)
+            break
+        end
+    end
+
+    return o
+end
 
 #-----------------------------------------------------------------------------# Vertex
 struct Vertex <: H3IndexType
