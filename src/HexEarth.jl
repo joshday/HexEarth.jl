@@ -14,7 +14,7 @@ import H3.Lib: LatLng
 
 export
     Cell, Vertex,
-    cells, geocode, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
+    cells, ring, grid_distance, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes
 # In this package:
@@ -23,11 +23,15 @@ export
 #  - distance units == meters
 #  - bearing units == degrees clockwise from North
 
-#-----------------------------------------------------------------------------# Geo
+#-----------------------------------------------------------------------------# includes
 # Essentially all things not hexagon-related
 include("Geo.jl")
-using .Geo
 import .Geo: destination, haversine, bearing, point2extent
+
+# # Hexagon types and functions.  Generated from https://www.redblobgames.com/grids/hexagons/
+# include("Hexagons.jl")
+# import .Hexagons: ring
+
 
 #-----------------------------------------------------------------------------# H3.Lib.LatLng
 GI.isgeometry(::LatLng) = true
@@ -101,14 +105,13 @@ struct Cell <: H3IndexType
 end
 Cell(lonlat, res=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(lonlat[2]), deg2rad(lonlat[1])), Int(res)))
 
-
 GI.geomtrait(::Cell) = GI.PolygonTrait()
 GI.centroid(::GI.PolygonTrait, o::Cell) = (ll = API.cellToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
 GI.coordinates(::GI.PolygonTrait, o::Cell) = (out = GI.coordinates.(API.cellToBoundary(o.index)); return [out..., out[1]])
 GI.nhole(::GI.PolygonTrait, o::Cell) = 0
 GI.ngeom(::GI.PolygonTrait, o::Cell) = 1
 GI.getgeom(::GI.PolygonTrait, o::Cell, i::Integer) = GI.LineString(GI.coordinates(o))
-GI.area(::GI.PolygonTrait, o::Cell) = area_m2(o)  # in m²
+GI.area(::GI.PolygonTrait, o::Cell) = area(o)  # in m²
 
 function GI.extent(::GI.PolygonTrait, o::Cell)
     coords = GI.coordinates(o)
@@ -126,7 +129,7 @@ end
 vertices(o::Cell) = Vertex.(API.cellToVertexes(o.index))
 const vertexes = vertices
 
-area_m2(o::Cell) = API.cellAreaM2(o.index)  # in m²
+area(o::Cell) = API.cellAreaM2(o.index)  # in m²
 
 grid_distance(a::Cell, b::Cell) = API.gridDistance(a.index, b.index)
 
@@ -159,13 +162,19 @@ haversine(a::Cell, b::Cell) = haversine(GI.centroid(a), GI.centroid(b))
 
 destination(a::Cell, azimuth°, m) = Cell(destination(GI.centroid(a), azimuth°, m), resolution(a))
 
+#-----------------------------------------------------------------------------# Cell Indexing
+const neighbor_indices = ((0,1), (0,-1), (1,0), (1,1), (-1,-1), (-1,0))
 
-Base.getindex(o::Cell, i::Integer) = Vertex(API.cellToVertex(o.index, i))
+
+Base.getindex(o::Cell, i::Integer) = i < 7 ? getindex(o, neighbor_indices[i]...) : throw(BoundsError(o, i))
+Base.iterate(o::Cell, i=1) = i > 6 ? nothing : (o, i + 1)
+Base.IteratorSize(::Type{Cell}) = Base.HasLength()
+Base.length(::Cell) = 6
+Base.eltype(::Type{Cell}) = Cell
 
 Base.getindex(o::Cell, i::Integer, j::Integer) = GridIJ(o)[i, j]
 
 Base.getindex(o::Cell, i::Integer, j::Integer, k::Integer) = GridIJK(o)[i, j, k]
-
 
 #-----------------------------------------------------------------------------# cells (geom-to-Vector{Cell})
 """
@@ -214,12 +223,13 @@ function cells(trait::GI.LineStringTrait, geom, res::Integer)
 end
 
 function cells(trait::GI.PolygonTrait, geom, res::Integer)
+
     verts = map(GI.coordinates(trait, geom)) do ring
         map(ring) do coord
             API.LatLng(deg2rad(coord[2]), deg2rad(coord[1]))
         end
     end
-    # verts = [H3.Lib.LatLng.(ring) for ring in GI.coordinates(trait, geom)]
+    # verts = [H3.Lib.LatLng.(LatLon.(ring)) for ring in GI.coordinates(trait, geom)]
     GC.@preserve verts begin
         geo_loops = H3.Lib.GeoLoop.(length.(verts), pointer.(verts))
     end
@@ -289,6 +299,7 @@ Create a 2D grid of cells indexed by (i, j, k) coordinates relative to an origin
 
 - Unlike libh3, (0, 0, 0) will always correspond to the origin cell.
 - Note there are multiple valid (i, j, k) coordinates for a given cell.
+- See also `GridIJ`.
 """
 struct GridIJK
     origin::Cell
@@ -306,7 +317,7 @@ struct Vertex <: H3IndexType
     Vertex(x::UInt64) = new(check(is_vertex, x))
 end
 GI.geomtrait(::Vertex) = GI.PointTrait()
-GI.coordinates(::GI.PointTrait, o::Vertex) = (ll = API.cellToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
+GI.coordinates(::GI.PointTrait, o::Vertex) = (ll = API.vertexToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
 GI.getcoord(::GI.PointTrait, o::Vertex, i::Integer) = GI.coordinates(o)[i]
 GI.ncoord(::GI.PointTrait, ::Vertex) = 2
 

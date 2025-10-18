@@ -7,7 +7,7 @@ using InteractiveUtils
 # ╔═╡ 560f27e0-aac5-11f0-8a6d-497eb8fb50cb
 begin 
 	using Pkg, Revise
-	Pkg.activate(joinpath(@__DIR__))
+	Pkg.activate(joinpath(@__DIR__, ".."))
 	
 	using HexEarth
 	import GeoInterface as GI 
@@ -20,21 +20,45 @@ md"# Indexing"
 # ╔═╡ 850c51c3-9bf8-4cc5-a2db-c2459e3c4d1d
 o = Cell((40.7128, -74.006))
 
-# ╔═╡ 606d6716-fc91-4353-b560-632217c3d66e
-o[1]
-
-# ╔═╡ 151368a5-9de2-4e3d-bdc4-120637a9682f
+# ╔═╡ 516c48b4-f713-4b9c-bf50-18eace702bad
 let 
 	fig = Figure()
-	ax = Axis(fig[1, 1])
-	scatter!(ax, o)
-	lines!(ax, o)
-	scatter!(ax, [o[i] for i in 1:6])
+	ax = Axis(fig[1,1], title="IJK Indexing")
+	ax2 = Axis(fig[1,2], title="IJ Indexing")
+	poly!(ax, o)
+	poly!(ax2, o)
+	# text!(ax, [o[i] for i in 1:6], text=string.(1:6))
+	for i in (0,1), j in (0,1), k in (0,1)
+		cell = o[i,j,k]
+		lines!(ax, cell)
+		text!(ax, GI.centroid(cell), text="$i,$j,$k")
+	end
+
+	function add_ij(i, j)
+		cell = o[i, j]
+		lines!(ax2, cell)
+		text!(ax2, GI.centroid(cell), text="$i,$j")
+	end
+	add_ij(0, 1)
+	add_ij(1, 0)
+	add_ij(1, 1)
+	add_ij(-1, 0)
+	add_ij(0, -1)
+	add_ij(-1, -1)
 	fig
 end
 
-# ╔═╡ 71de79a8-7dac-436c-bd77-2baf2a4f1339
-o[1]
+# ╔═╡ 4df1d68b-250d-44e6-9d86-beb61056f15f
+let 
+	fig = Figure()
+	ax = Axis(fig[1,1], title="Spiral Indexing")
+	poly!(ax, o)
+	for i in 1:6 
+		lines!(ax, o[i])
+		text!(ax, GI.centroid(o[i]); text=string(i))
+	end
+	fig
+end
 
 # ╔═╡ b7c18070-209f-4f4d-af37-8ae4271e7142
 md"""
@@ -45,7 +69,7 @@ md"""
 md"## Point"
 
 # ╔═╡ c83218a0-50fe-4f52-ba97-60132974021c
-point = LatLon(-74.006, 40.7128)
+point = (-74.006, 40.7128)
 
 # ╔═╡ 126171cf-9aab-4c47-933b-b2fea37f1f07
 point_cells = cells(point)
@@ -178,12 +202,11 @@ let
 end
 
 # ╔═╡ Cell order:
-# ╟─560f27e0-aac5-11f0-8a6d-497eb8fb50cb
+# ╠═560f27e0-aac5-11f0-8a6d-497eb8fb50cb
 # ╟─ea82065b-fa89-4e20-97ee-042988e10eaf
 # ╠═850c51c3-9bf8-4cc5-a2db-c2459e3c4d1d
-# ╠═606d6716-fc91-4353-b560-632217c3d66e
-# ╠═151368a5-9de2-4e3d-bdc4-120637a9682f
-# ╠═71de79a8-7dac-436c-bd77-2baf2a4f1339
+# ╟─516c48b4-f713-4b9c-bf50-18eace702bad
+# ╟─4df1d68b-250d-44e6-9d86-beb61056f15f
 # ╟─b7c18070-209f-4f4d-af37-8ae4271e7142
 # ╟─36c1fe57-7caf-42f7-bb23-de5a8ba28136
 # ╟─c83218a0-50fe-4f52-ba97-60132974021c

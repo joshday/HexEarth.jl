@@ -1,7 +1,7 @@
 module HexEarthRastersExt
 
 import Rasters
-import HexEarth: cells, LatLon, Cell
+import HexEarth: cells, Cell
 
 
 function cells(r::Rasters.AbstractRaster{T, 2}, res::Integer = 10; dropmissing::Bool = true) where {T}
