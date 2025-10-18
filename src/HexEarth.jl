@@ -345,7 +345,8 @@ function interpolate_nearest!(o::DataCells, f = mean; max_distance = 10)
         for k in 1:max_distance
             cells_in_ring = filter(kv -> grid_distance(kv[1], cell) == k, filled_cells)
             isempty(cells_in_ring) && continue
-            val = only(f(collect(values(cells_in_ring))))
+            vals = reduce(vcat, values(cells_in_ring))
+            val = f(vals)
             push!(o.data[cell], val)
             break
         end

@@ -1,5 +1,5 @@
 ```@setup geom
-using GLMakie, HexEarth
+using CairoMakie, HexEarth
 
 
 ```
