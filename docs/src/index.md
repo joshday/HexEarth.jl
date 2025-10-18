@@ -11,10 +11,13 @@ HexEarth provides tools built on top of [H3.jl](https://github.com/wookay/H3.jl)
 
 ```@repl
 using HexEarth
+import GeoInterface as GI
 
 new_york = (-75.0, 43.0)
 
 cell = Cell(new_york, 10)
 
 HexEarth.area(cell)
+
+GI.centroid(cell)
 ```

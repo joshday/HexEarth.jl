@@ -311,6 +311,32 @@ function Base.getindex(grid::GridIJK, i::Integer, j::Integer, k::Integer)
     Cell(API.localIjkToCell(grid.origin.index, API.CoordIJK(i + grid.ijk.i, j + grid.ijk.j, k + grid.ijk.k)))
 end
 
+#-----------------------------------------------------------------------------# DataCells
+"""
+    DataCells(::Dict{Cell, T}) where {T}
+
+Wrapper around a dictionary mapping `Cell`s to data values.
+"""
+struct DataCells{T}
+    data::Dict{Cell, T}
+end
+function Base.show(io::IO, M::MIME"text/plain", o::DataCells)
+    print(io, styled"{bright_cyan:DataCells:} ")
+    show(io, M, o.data)
+end
+
+GI.isgeometry(::DataCells) = true
+GI.ncoord(::GI.MultiPolygonTrait, ::DataCells) = 2
+GI.geomtrait(::DataCells) = GI.MultiPolygonTrait()
+GI.coordinates(::GI.MultiPolygonTrait, o::DataCells) = [GI.coordinates(c) for c in keys(o.data)]
+GI.ngeom(::GI.MultiPolygonTrait, o::DataCells) = length(o.data)
+GI.getgeom(::GI.MultiPolygonTrait, o::DataCells, i::Integer) = collect(keys(o.data))[i]
+GI.extent(::GI.PolygonTrait, o::DataCells) = reduce(Extents.union, GI.extent.(keys(o)))
+
+const VectorCells = DataCells{S} where {T, S <: AbstractVector{T}}
+get_values(o::DataCells, f) = [f(v) for v in values(o.data)]
+
+
 #-----------------------------------------------------------------------------# Vertex
 struct Vertex <: H3IndexType
     index::UInt64

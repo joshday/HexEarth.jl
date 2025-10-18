@@ -54,4 +54,26 @@ obj = GeoJSON.read(file)
 x = cells(obj.geometry[1], 6)
 
 p = lines(x)
+lines!(obj.geometry)
+p
+```
+
+## Rasters
+
+- For things that have data associated with points, such as rasters, `cells` returns `DataCells`.
+- `DataCells{T}` is a wrapper around a `Dict{Cell, T}`.
+- For rasters, multiple points could end up in the same cell, so we use `DataCells{Vector{T}}` where `T` is the eltype of the raster.
+- To reduce vector values to a single number, use `HexEarth.get_values(::DataCell, fun)`.
+
+```@example geom
+using Rasters, RasterDataSources, ArchGDAL
+
+(; elev) = getraster(WorldClim{Elevation})
+
+r = Raster(elev)
+madagascar = view(r, X(43.25 .. 50.48), Y(-25.61 .. -12.04))
+
+x = cells(madagascar, 4)
+
+poly(x; color = HexEarth.get_values(x, maximum))
 ```

@@ -6,7 +6,12 @@ Makie.set_theme!(theme_dark())
 makedocs(
     sitename = "HexEarth",
     format = Documenter.HTML(),
-    modules = [HexEarth]
+    modules = [HexEarth],
+    pages = [
+        "Home" => "index.md",
+        "Geometry to Cells" => "geometry_to_cell.md",
+        "API" => "api.md"
+    ]
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
