@@ -83,9 +83,9 @@ x = cells(nc_elev, 4)
 poly(x; color = HexEarth.get_values(x, maximum))
 ```
 
-### Interpolation
+### Resolution Issues
 
-- At higher resolutions, you may end up with holes not present in the original polygon.
+- At higher `Cell` resolutions, you may end up with holes:
 
 ```@example geom
 x = cells(nc_elev, 5)
@@ -93,18 +93,12 @@ x = cells(nc_elev, 5)
 poly(x; color=HexEarth.get_values(x, maximum))
 ```
 
-- `cells` accepts a mask as a first argument which will:
+- `cells` accepts a "mask" as a first argument which will:
   1.  Create the cells based on the geometry.
   2.  Populate the cells' data based on the raster.
 
 ```@example geom
 x = cells(obj.geometry[1], nc_elev, 5)
-
-# Change the eltype to enable interpolation (Int16 --> Float64 in this case)
-x = HexEarth.DataCells(Dict(k => Float64.(v) for (k,v) in pairs(x.data)))
-
-# Use the nearest hexagon value (or mean of equidistant cells) to interpolate
-HexEarth.interpolate_nearest!(x)
 
 poly(x, color = HexEarth.get_values(x, maximum))
 ```

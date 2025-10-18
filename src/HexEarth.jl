@@ -14,7 +14,7 @@ import H3.Lib: LatLng
 
 
 export
-    Cell, Vertex,
+    Cell, DataCells, Vertex,
     cells, ring, grid_distance, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes

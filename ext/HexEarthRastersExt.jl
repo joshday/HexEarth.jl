@@ -26,8 +26,11 @@ function cells(mask, r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = 
         lon, lat = GI.centroid(cell)
         val = r[X(Near(lon)), Y(Near(lat))]
         v = get!(out, cell, T[])
-        ismissing(val) && dropmissing && continue
-        push!(v, val)
+        if ismissing(val) && dropmissing
+            delete!(out, cell)
+        else
+            push!(v, val)
+        end
     end
     return DataCells(out)
 end
