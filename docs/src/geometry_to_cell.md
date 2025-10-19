@@ -40,6 +40,33 @@ lines!(ls.geom)
 p
 ```
 
+- With a polygon input, you have more control over how cells are added.  You can hack together a
+  polygon from a linestring by adding some noise
+
+The `cells` function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.
+
+```@example geom
+ls = GI.LineString([(0.0, 0.0), (1.0, 1.0), (-1.0, 2.0)])
+
+# Create linestring for polygon
+out = [
+    # Original points
+    GI.coordinates(ls)...,
+    # Reverse points with added noise
+    map(xy -> xy .+ .0000001, reverse(GI.coordinates(ls)))...,
+    # Close the loop
+    GI.coordinates(ls)[1]
+]
+shape = GI.Polygon([out])
+
+# include cells that have any overlapping part with the line
+x = cells(shape, 6, containment = :overlap)
+
+p = lines(x)
+lines!(ls)
+p
+```
+
 ## (Multi)Polygon
 
 - There are several algorithms available for filling in cells based on a polygon, based on keyword argument `containment`.
