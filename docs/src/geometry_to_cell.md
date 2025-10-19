@@ -1,8 +1,7 @@
 ```@setup geom
 using CairoMakie, HexEarth
-
-
 ```
+
 # Geometry to Cell
 
 The main function to create a collection of cells that approximate a geometry is [`cells`](@ref):
@@ -43,6 +42,11 @@ p
 
 ## (Multi)Polygon
 
+- There are several algorithms available for filling in cells based on a polygon, based on keyword argument `containment`.
+- `containment = nothing` (the default) will use the `H3.Lib.polygonToCells` function.
+- Other containment modes (`:center`, `:full`, `:overlap`, or `:overlap_bbox`) will use `H3.Lib.polygonToCellsExperimental`.
+- As far as we can tell `containment = :center` uses the same algorithm as `containment = nothing`.
+
 ```@example geom
 using GeoJSON
 
@@ -51,19 +55,53 @@ url = "https://nominatim.openstreetmap.org/search?state=north_carolina&format=ge
 file = download(url)
 obj = GeoJSON.read(file)
 
-x = cells(obj.geometry[1], 6)
+# Create figure
+function make_axis(i, j, res, containment)
+    ax = Axis(fig[i, j], title="containment = $containment")
+    x = cells(obj.geometry[1], res; containment)
+    lines!(ax, obj.geometry)
+    lines!(ax, x)
+end
+fig = Figure()
+make_axis(1, 1, 4, nothing)
+make_axis(1, 2, 4, :center)
+make_axis(1, 3, 4, :full)
+make_axis(2, 1, 4, :overlap)
+make_axis(2, 2, 4, :overlap_bbox)
+fig
+```
 
-p = lines(x)
-lines!(obj.geometry)
-p
+## Extents
+
+- Uses the same `containment` options as for (Multi)polygons.
+
+```@example geom
+ex = GI.extent(obj)
+
+# for plotting
+x1, x2 = ex.X
+y1, y2 = ex.Y
+linestring = GI.LineString([(x1,y1), (x1,y2), (x2,y2), (x2, y1), (x1,y1)])
+
+# Create figure
+function make_axis(i, j, res, containment)
+    ax = Axis(fig[i, j], title="containment = $containment")
+    x = cells(ex, res; containment)
+    lines!(ax, obj.geometry)
+    lines!(ax, linestring)
+    lines!(ax, x)
+end
+fig = Figure()
+make_axis(1, 1, 4, :center)
+make_axis(1, 2, 4, :full)
+make_axis(2, 1, 4, :overlap)
+make_axis(2, 2, 4, :overlap_bbox)
+fig
 ```
 
 ## Rasters
 
-- For things that have data associated with points, such as rasters, `cells` returns `DataCells`.
-- `DataCells{T}` is a wrapper around a `Dict{Cell, T}`.
-- For rasters, multiple points could end up in the same cell, so we use `DataCells{Vector{T}}` where `T` is the eltype of the raster.
-- To reduce vector values to a single number, use `HexEarth.get_values(::DataCell, fun)`.
+- For rasters, `cells` returns `Dict{Cell, Vector{T}}` where `T` is the eltype of the raster.
 
 ```@example geom
 using Rasters, RasterDataSources, ArchGDAL
@@ -80,7 +118,7 @@ nc_elev = view(r_nc, nc_ext)
 
 x = cells(nc_elev, 4)
 
-poly(x; color = HexEarth.get_values(x, maximum))
+poly(collect(keys(x)); color=maximum.(values(x)))
 ```
 
 ### Resolution Issues
@@ -90,15 +128,16 @@ poly(x; color = HexEarth.get_values(x, maximum))
 ```@example geom
 x = cells(nc_elev, 5)
 
-poly(x; color=HexEarth.get_values(x, maximum))
+poly(collect(keys(x)); color=maximum.(values(x)))
 ```
 
 - `cells` accepts a "mask" as a first argument which will:
   1.  Create the cells based on the geometry.
   2.  Populate the cells' data based on the raster.
+- Cells that would otherwise have been empty will now use the nearest raster pixel.
 
 ```@example geom
 x = cells(obj.geometry[1], nc_elev, 5)
 
-poly(x, color = HexEarth.get_values(x, maximum))
+poly(collect(keys(x)); color=maximum.(values(x)))
 ```

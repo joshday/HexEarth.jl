@@ -2,6 +2,8 @@
 
 HexEarth provides tools built on top of [H3.jl](https://github.com/wookay/H3.jl) for working with [Uber's H3 grid system](https://h3geo.org).
 
+!!! tip "What does HexEarth do?"
+    The primary purpose of this package is to join disparate vector and raster datasets to a unified hexagonal grid.
 
 ## Quick Start
 

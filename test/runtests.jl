@@ -65,5 +65,9 @@ using Test
         poly = GI.Polygon([GI.LineString([GI.centroid(a[1,1]), GI.centroid(a[1,0]), GI.centroid(a[0,0]), GI.centroid(a[0,1]), GI.centroid(a[1,1])])])
         @test length(cells(poly)) == 4
 
+        cells(poly, containment = :center)
+        cells(poly, containment = :full)
+        cells(poly, containment = :overlap)
+        cells(poly, containment = :overlap_bbox)
     end
 end

@@ -14,7 +14,7 @@ import H3.Lib: LatLng
 
 
 export
-    Cell, DataCells, Vertex,
+    Cell, Vertex, DirectedEdge,
     cells, ring, grid_distance, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes
@@ -223,47 +223,56 @@ function cells(trait::GI.LineStringTrait, geom, res::Integer)
     unique!(out)
 end
 
-function cells(trait::GI.PolygonTrait, geom, res::Integer)
-
-    verts = map(GI.coordinates(trait, geom)) do ring
+# Get H3.Lib.GeoPolygon from GeoInterface polygon
+function h3polygon(geom)
+    GI.trait(geom) == GI.PolygonTrait() || throw(ArgumentError("Expected Polygon geometry"))
+    verts = map(GI.coordinates(geom)) do ring
         map(ring) do coord
             API.LatLng(deg2rad(coord[2]), deg2rad(coord[1]))
         end
     end
-    # verts = [H3.Lib.LatLng.(LatLon.(ring)) for ring in GI.coordinates(trait, geom)]
     GC.@preserve verts begin
         geo_loops = H3.Lib.GeoLoop.(length.(verts), pointer.(verts))
     end
     GC.@preserve geo_loops begin
         n = length(geo_loops)
-        geo_polygon = H3.Lib.GeoPolygon(geo_loops[1], n - 1, n > 1 ? pointer(geo_loops, 2) : C_NULL)
+        return H3.Lib.GeoPolygon(geo_loops[1], n - 1, n > 1 ? pointer(geo_loops, 2) : C_NULL)
     end
+end
+
+function cells(trait::GI.PolygonTrait, geom, res::Integer; containment = nothing)
+    isnothing(containment) || containment in (:center, :full, :overlap, :overlap_bbox) ||
+        throw(ArgumentError("Invalid containment mode.  Expected one of `(nothing, :center, :full, :overlap, :overlap_bbox)`.  Found: $containment."))
+    geo_polygon = h3polygon(geom)
+    flag = containment == :center ? H3.Lib.CONTAINMENT_CENTER :
+        containment == :full ? H3.Lib.CONTAINMENT_FULL :
+        containment == :overlap ? H3.Lib.CONTAINMENT_OVERLAPPING :
+        containment == :overlap_bbox ? H3.Lib.CONTAINMENT_OVERLAPPING_BBOX :
+        H3.Lib.CONTAINMENT_INVALID  # containment = nothing --> this is unused
     GC.@preserve geo_polygon begin
         max_n = Ref{Int64}()
-        ret::API.H3Error = H3.Lib.maxPolygonToCellsSize(Ref(geo_polygon), res, 0, max_n)
+        ret::API.H3Error = isnothing(containment) ?
+            H3.Lib.maxPolygonToCellsSize(Ref(geo_polygon), res, 0, max_n) :
+            H3.Lib.maxPolygonToCellsSizeExperimental(Ref(geo_polygon), res, flag, max_n)
         API._check_h3error(ret, nothing)
         out = zeros(UInt64, max_n[])
-        ret2::API.H3Error = H3.Lib.polygonToCells(Ref(geo_polygon), res, 0, out)
+        ret2::API.H3Error = isnothing(containment) ?
+            H3.Lib.polygonToCells(Ref(geo_polygon), res, 0, out) :
+            H3.Lib.polygonToCellsExperimental(Ref(geo_polygon), res, flag, max_n[], out)
         API._check_h3error(ret2, out)
         out = Cell.(filter!(!iszero, unique!(out)))
     end
-    # Hack around the fact that the libh3 implementation sometimes misses cells on the edges.
-    for ring in GI.coordinates(geom)
-        union!(out, cells(GI.LineString(ring), res))
-    end
-    return out
 end
 
-function cells(trait::GI.MultiPolygonTrait, geom, res::Integer)
-    reduce(union, cells.(GI.getpolygon(geom), res))
+function cells(trait::GI.MultiPolygonTrait, geom, res::Integer; kw...)
+    reduce(union, cells.(GI.getpolygon(geom), res; kw...))
 end
 
-function cells(ex::Extents.Extent, res::Integer)
-    sw = (ex.Y[1], ex.X[1])
-    ne = (ex.Y[2], ex.X[2])
-    nw = (ex.Y[2], ex.X[1])
-    se = (ex.Y[1], ex.X[2])
-    cells(GI.Polygon([GI.LineString([sw, nw, ne, se, sw])]), res)
+function cells(ex::Extents.Extent, res::Integer; kw...)
+    x1, x2 = ex.X
+    y1, y2 = ex.Y
+    ls = GI.LineString([(x1, y1), (x1, y2), (x2, y2), (x2, y1), (x1, y1)])
+    cells(GI.Polygon([ls]), res; kw...)
 end
 
 #-----------------------------------------------------------------------------# GridIJ
@@ -312,50 +321,12 @@ function Base.getindex(grid::GridIJK, i::Integer, j::Integer, k::Integer)
     Cell(API.localIjkToCell(grid.origin.index, API.CoordIJK(i + grid.ijk.i, j + grid.ijk.j, k + grid.ijk.k)))
 end
 
-#-----------------------------------------------------------------------------# DataCells
-"""
-    DataCells(::Dict{Cell, T}) where {T}
-
-Wrapper around a dictionary mapping `Cell`s to data values.
-"""
-struct DataCells{T}
-    data::Dict{Cell, T}
-end
-function Base.show(io::IO, M::MIME"text/plain", o::DataCells)
-    print(io, styled"{bright_cyan:DataCells:} ")
-    show(io, M, o.data)
-end
-
-GI.isgeometry(::DataCells) = true
-GI.ncoord(::GI.MultiPolygonTrait, ::DataCells) = 2
-GI.geomtrait(::DataCells) = GI.MultiPolygonTrait()
-GI.coordinates(::GI.MultiPolygonTrait, o::DataCells) = [GI.coordinates(c) for c in keys(o.data)]
-GI.ngeom(::GI.MultiPolygonTrait, o::DataCells) = length(o.data)
-GI.getgeom(::GI.MultiPolygonTrait, o::DataCells, i::Integer) = collect(keys(o.data))[i]
-GI.extent(::GI.PolygonTrait, o::DataCells) = reduce(Extents.union, GI.extent.(keys(o)))
-
-const VectorCells = DataCells{S} where {T, S <: AbstractVector{T}}
-get_values(o::DataCells, f) = [f(v) for v in values(o.data)]
-
-function interpolate_nearest!(o::DataCells, f = mean; max_distance = 10)
-    empty_cells = filter(kv -> isempty(kv[2]), o.data)
-    filled_cells = filter(kv -> !isempty(kv[2]), o.data)
-
-    for cell in keys(empty_cells)
-        for k in 1:max_distance
-            cells_in_ring = filter(kv -> grid_distance(kv[1], cell) == k, filled_cells)
-            isempty(cells_in_ring) && continue
-            vals = reduce(vcat, values(cells_in_ring))
-            val = f(vals)
-            push!(o.data[cell], val)
-            break
-        end
-    end
-
-    return o
-end
-
 #-----------------------------------------------------------------------------# Vertex
+"""
+    Vertex(index::UInt64)
+
+Represents a vertex (point on a `Cell` boundary) in the H3 grid.
+"""
 struct Vertex <: H3IndexType
     index::UInt64
     Vertex(x::UInt64) = new(check(is_vertex, x))
@@ -363,11 +334,47 @@ end
 GI.geomtrait(::Vertex) = GI.PointTrait()
 GI.coordinates(::GI.PointTrait, o::Vertex) = (ll = API.vertexToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
 GI.getcoord(::GI.PointTrait, o::Vertex, i::Integer) = GI.coordinates(o)[i]
-GI.ncoord(::GI.PointTrait, ::Vertex) = 2
 
 function Base.show(io::IO, o::Vertex)
     ll = styled"{bright_black:$(GI.coordinates(o))}"
-    print(io, styled"{bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
+    print(io, styled"{bright_green:•} {bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
 end
+
+#-----------------------------------------------------------------------------# DirectedEdge
+"""
+    DirectedEdge(a::Cell, b::Cell)
+
+Represents a directional relationship between *adjacent* cells `a` and `b`.
+"""
+struct DirectedEdge <: H3IndexType
+    index::UInt64
+    DirectedEdge(x::UInt64) = new(check(is_directed_edge, x))
+end
+function DirectedEdge(a::Cell, b::Cell)
+    idx = API.cellsToDirectedEdge(a.index, b.index)
+    idx isa H3.API.H3Error ?
+        error(H3.API.describeH3Error(idx)) :
+        DirectedEdge(idx)
+end
+
+GI.geomtrait(::DirectedEdge) = GI.LineTrait()
+GI.coordinates(::GI.LineTrait, o::DirectedEdge) = GI.centroid.(cells(o))
+GI.getcoord(::GI.LineTrait, o::DirectedEdge, i::Integer) = GI.coordinates(o)[i]
+
+function Base.show(io::IO, o::DirectedEdge)
+    ll = styled"{bright_black:$(GI.coordinates(o))}"
+    print(io, styled"{bright_green:→} {bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
+end
+
+function cells(o::DirectedEdge)
+    a, b = API.directedEdgeToCells(o.index)
+    [Cell(a), Cell(b)]
+end
+
+Base.length(o::DirectedEdge) = 2
+Base.getindex(o::DirectedEdge, i::Integer) = cells(o)[i]
+Base.iterate(o::DirectedEdge, i=1) = iterate(cells(o), i)
+Base.IteratorSize(::Type{DirectedEdge}) = Base.HasLength()
+Base.eltype(::Type{DirectedEdge}) = Cell
 
 end # module

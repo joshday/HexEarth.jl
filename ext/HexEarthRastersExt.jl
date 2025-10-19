@@ -1,7 +1,7 @@
 module HexEarthRastersExt
 
 import Rasters: AbstractRaster, X, Y, At, Near
-import HexEarth: cells, Cell, DataCells
+import HexEarth: cells, Cell
 import GeoInterface as GI
 
 
@@ -16,7 +16,7 @@ function cells(r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) 
             push!(v, val)
         end
     end
-    return DataCells(out)
+    return out
 end
 
 function cells(mask, r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
@@ -32,8 +32,7 @@ function cells(mask, r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = 
             push!(v, val)
         end
     end
-    return DataCells(out)
+    return out
 end
-
 
 end
