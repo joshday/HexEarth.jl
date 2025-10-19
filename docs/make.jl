@@ -3,6 +3,8 @@ using HexEarth
 using Makie
 Makie.set_theme!(theme_dark())
 
+get!(ENV, "RASTERDATASOURCES_PATH", mktempdir())
+
 makedocs(
     sitename = "HexEarth",
     format = Documenter.HTML(),
