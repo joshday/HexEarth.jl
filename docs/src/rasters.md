@@ -1,6 +1,7 @@
 # Rasters to Cells
 
 - For rasters, `cells` returns `Dict{Cell, Vector{T}}` where `T` is the eltype of the raster.
+- By default, `missing` values from the raster will not be included.  Use `dropmissing=false` to include them.
 
 ```@example geom
 using HexEarth, GeoMakie, CairoMakie, Rasters, RasterDataSources, ArchGDAL

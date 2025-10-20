@@ -11,6 +11,7 @@ makedocs(
     modules = [HexEarth],
     pages = [
         "Home" => "index.md",
+        "About H3" => "h3.md",
         "Geometry to Cells" => "geometry_to_cell.md",
         "Rasters to Cells" => "rasters.md",
         "Inspection and Indexing" => "inspection.md",

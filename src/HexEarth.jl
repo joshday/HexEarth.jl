@@ -147,6 +147,10 @@ const vertexes = vertices
 
 area(o::Cell) = API.cellAreaM2(o.index)  # in m²
 
+parent(o::Cell) = Cell(API.cellToParent(o.index, resolution(o) - 1))
+children(o::Cell) = Cell.(API.cellToChildren(o.index, resolution(o) + 1))
+
+
 grid_distance(a::Cell, b::Cell) = API.gridDistance(a.index, b.index)
 
 """
@@ -339,7 +343,12 @@ end
 GridIJK(o::Cell) = GridIJK(o, API.cellToLocalIjk(o.index, o.index))
 Base.show(io::IO, o::GridIJK) = print(io, styled"GridIJK - origin: $(o.origin)")
 function Base.getindex(grid::GridIJK, i::Integer, j::Integer, k::Integer)
-    Cell(API.localIjkToCell(grid.origin.index, API.CoordIJK(i + grid.ijk.i, j + grid.ijk.j, k + grid.ijk.k)))
+    coord = API.CoordIJK(i + grid.ijk.i, j + grid.ijk.j, k + grid.ijk.k)
+    res = API.localIjkToCell(grid.origin.index, coord)
+    @info res
+    res isa Union{H3.API.H3ErrorCode, H3.API.H3Error} ?
+        error(H3.API.describeH3Error(res)) :
+        Cell(res)
 end
 
 #-----------------------------------------------------------------------------# Vertex
