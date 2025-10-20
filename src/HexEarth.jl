@@ -133,6 +133,15 @@ function Base.show(io::IO, o::Cell)
     print(io, styled"$shape {bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
 end
 
+# Check if the cell crosses the 180° longitude line
+function crosses_lon180(o::Cell)
+    lons = [x[1] for x in GI.coordinates(o)]
+    for x in lons, y in lons
+        abs(x - y) > 180 && return true
+    end
+    return false
+end
+
 vertices(o::Cell) = Vertex.(API.cellToVertexes(o.index))
 const vertexes = vertices
 
@@ -197,7 +206,7 @@ Return a `Vector{Cell}` covering the given geometry at the specified H3 resoluti
     - `:full`: include cells fully contained within the polygon
     - `:overlap`: include cells that overlap the polygon at all
     - `:overlap_bbox`: include cells that overlap the polygon's bounding box
-- Rasters (requires Rasters.jl to be loaded) 
+- Rasters (requires Rasters.jl to be loaded)
 """
 cells(geom, res::Integer = 10; kw...) = cells(GI.trait(geom), geom, res; kw...)
 

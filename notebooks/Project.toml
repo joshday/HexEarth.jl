@@ -1,8 +1,0 @@
-[deps]
-ArchGDAL = "c9ce4bd3-c3d5-55b8-8973-c0e20141b8c3"
-Extents = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
-GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
-GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
-HexEarth = "b6c1dbec-f0b9-46a4-b02d-37702cdd07ef"
-RasterDataSources = "3cb90ccd-e1b6-4867-9617-4276c8b2ca36"
-Rasters = "a3a2b9e3-a471-40c9-b274-f788e487c689"

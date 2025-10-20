@@ -2,7 +2,7 @@
 using CairoMakie, HexEarth
 ```
 
-# Geometry to Cell
+# Geometry to Cells
 
 The main function to create a collection of cells that approximate a geometry is [`cells`](@ref):
 
@@ -120,40 +120,5 @@ make_axis(1, 1, 4, :center)
 make_axis(1, 2, 4, :full)
 make_axis(2, 1, 4, :overlap)
 make_axis(2, 2, 4, :overlap_bbox)
-fig
-```
-
-## Rasters
-
-- For rasters, `cells` returns `Dict{Cell, Vector{T}}` where `T` is the eltype of the raster.
-
-```@example geom
-using Rasters, RasterDataSources, ArchGDAL
-
-(; elev) = getraster(WorldClim{Elevation})
-
-r = Raster(elev)
-
-nc_ext = GI.extent(obj.geometry[1])
-
-r_nc = mask(r, with=obj.geometry[1])
-
-nc_elev = view(r_nc, nc_ext)
-
-x = cells(nc_elev, 4)
-
-poly(collect(keys(x)); color=maximum.(values(x)))
-```
-
-- At high resolutions, note that the original raster is closely preserved
-
-
-```@example geom
-fig = Figure()
-x = cells(nc_elev, 8)
-
-poly!(Axis(fig[1,1], title="cells"), collect(keys(x)); color=maximum.(values(x)), strokewidth=0)
-plot!(Axis(fig[2,1], title="original"), nc_elev)
-linkaxes!(fig.content...)
 fig
 ```
