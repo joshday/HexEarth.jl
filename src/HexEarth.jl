@@ -37,7 +37,6 @@ import .Geo: destination, haversine, bearing, point2extent
 #-----------------------------------------------------------------------------# H3.Lib.LatLng
 GI.isgeometry(::LatLng) = true
 GI.geomtrait(::LatLng) = GI.PointTrait()
-GI.coordinates(::GI.PointTrait, o::LatLng) = (rad2deg(o.lng), rad2deg(o.lat))
 GI.getcoord(::GI.PointTrait, o::LatLng, i::Integer) = GI.coordinates(o)[i]
 GI.ncoord(::GI.PointTrait, ::LatLng) = 2
 
@@ -89,7 +88,7 @@ end
 abstract type H3IndexType end
 
 GI.isgeometry(::H3IndexType) = true
-GI.geomtrait(::H3IndexType) = GI.UnknownTrait()
+GI.geomtrait(::H3IndexType) = GI.UnknownTrait() # ERROR: This is not a thing!  (If it is it shouldn't be)
 GI.crs(::H3IndexType) = GFT.EPSG(4326)
 GI.ncoord(::GI.PolygonTrait, o::H3IndexType) = 2
 
@@ -114,18 +113,10 @@ Cell(lonlat, res=10) = Cell(API.latLngToCell(API.LatLng(deg2rad(lonlat[2]), deg2
 
 GI.geomtrait(::Cell) = GI.PolygonTrait()
 GI.centroid(::GI.PolygonTrait, o::Cell) = (ll = API.cellToLatLng(o.index); (rad2deg(ll.lng), rad2deg(ll.lat)))
-GI.coordinates(::GI.PolygonTrait, o::Cell) = (out = GI.coordinates.(API.cellToBoundary(o.index)); return [out..., out[1]])
 GI.nhole(::GI.PolygonTrait, o::Cell) = 0
 GI.ngeom(::GI.PolygonTrait, o::Cell) = 1
 GI.getgeom(::GI.PolygonTrait, o::Cell, i::Integer) = GI.LineString(GI.coordinates(o))
 GI.area(::GI.PolygonTrait, o::Cell) = area(o)  # in m²
-
-function GI.extent(::GI.PolygonTrait, o::Cell)
-    coords = GI.coordinates(o)
-    lons = getindex.(coords, 1)
-    lats = getindex.(coords, 2)
-    Extents.Extent(X=(minimum(lons), maximum(lons)), Y=(minimum(lats), maximum(lats)))
-end
 
 function Base.show(io::IO, o::Cell)
     shape = is_pentagon(o) ? styled"{bright_red:⬠}" : styled"{bright_green:⬡}"
@@ -379,8 +370,8 @@ function DirectedEdge(a::Cell, b::Cell)
 end
 
 GI.geomtrait(::DirectedEdge) = GI.LineTrait()
-GI.coordinates(::GI.LineTrait, o::DirectedEdge) = GI.centroid.(cells(o))
-GI.getcoord(::GI.LineTrait, o::DirectedEdge, i::Integer) = GI.coordinates(o)[i]
+GI.getpoint(::GI.LineTrait, o::DirectedEdge, i::Integer) = GI.centroid(cells(o))[i]
+GI.npoint(::GI.LineTrait, o::DirectedEdge) = 2
 
 function Base.show(io::IO, o::DirectedEdge)
     ll = styled"{bright_black:$(GI.coordinates(o))}"
