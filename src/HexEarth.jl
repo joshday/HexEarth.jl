@@ -100,6 +100,12 @@ resolution(o::H3IndexType) = resolution(o.index)
 is_pentagon(o::H3IndexType) = is_pentagon(o.index)
 
 #-----------------------------------------------------------------------------# Cell
+"""
+    Cell(index::UInt64)
+    Cell(lonlat::Tuple{<:Real, <:Real}, res::Integer=10)
+
+A hexagonal cell in the H3 grid.
+"""
 struct Cell <: H3IndexType
     index::UInt64
     Cell(x::UInt64) = new(check(is_cell, x))
@@ -164,7 +170,7 @@ haversine(a::Cell, b::Cell) = haversine(GI.centroid(a), GI.centroid(b))
 destination(a::Cell, azimuth°, m) = Cell(destination(GI.centroid(a), azimuth°, m), resolution(a))
 
 #-----------------------------------------------------------------------------# Cell Indexing
-const neighbor_indices = ((0,1), (0,-1), (1,0), (1,1), (-1,-1), (-1,0))
+const neighbor_indices = ((0,1,0), (1,1,0), (1,0,0), (1,0,1), (0,0,1), (0,1,1))
 
 
 Base.getindex(o::Cell, i::Integer) = i < 7 ? getindex(o, neighbor_indices[i]...) : throw(BoundsError(o, i))
