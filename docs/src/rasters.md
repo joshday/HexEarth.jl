@@ -15,5 +15,5 @@ dict = cells(r, 2)
 # horizontal "stripes" across the map
 dict2 = filter(kv -> !HexEarth.crosses_lon180(kv[1]), dict)
 
-poly(collect(keys(dict2)), color=maximum.(values(dict2)))
+poly(collect(keys(dict2)), color=maximum.(values(dict2)), axis=(;type = GeoAxis))
 ```

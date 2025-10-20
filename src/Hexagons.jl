@@ -1,4 +1,5 @@
 # Claude-generated module, based on https://www.redblobgames.com/grids/hexagons
+# Currently unused by HexEarth.jl but may be useful for future features.
 module Hexagons
 #-----------------------------------------------------------------------------# Coordinate Types
 """

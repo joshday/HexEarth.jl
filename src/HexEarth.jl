@@ -130,7 +130,7 @@ end
 function Base.show(io::IO, o::Cell)
     shape = is_pentagon(o) ? styled"{bright_red:⬠}" : styled"{bright_green:⬡}"
     ll = styled"{bright_black:$(GI.centroid(o))}"
-    print(io, styled"$shape {bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$(repr(o.index))} $ll")
+    print(io, styled"$shape {bright_cyan:$(typeof(o))} {bright_magenta:$(resolution(o))} {bright_black:$ll}")
 end
 
 # Check if the cell crosses the 180° longitude line
@@ -183,7 +183,7 @@ const neighbor_indices = ((0,1,0), (1,1,0), (1,0,0), (1,0,1), (0,0,1), (0,1,1))
 
 
 Base.getindex(o::Cell, i::Integer) = i < 7 ? getindex(o, neighbor_indices[i]...) : throw(BoundsError(o, i))
-Base.iterate(o::Cell, i=1) = i > 6 ? nothing : (o, i + 1)
+Base.iterate(o::Cell, i=1) = i > 6 ? nothing : (o[i], i + 1)
 Base.IteratorSize(::Type{Cell}) = Base.HasLength()
 Base.length(::Cell) = 6
 Base.eltype(::Type{Cell}) = Cell
@@ -218,34 +218,30 @@ function cells(trait::GI.MultiPointTrait, geom, res::Integer)
     unique!(Cell.(GI.coordinates(trait, geom), res))
 end
 
-function cells(trait::GI.LineTrait, geom, res::Integer; exact::Bool = false)
+ϵ::Float64 = 1e-6
+
+function cells(trait::GI.LineTrait, geom, res::Integer; shortest_path = true)
     coords = GI.coordinates(trait, geom)
-    !exact && return grid_path_cells(Cell(coords[1], res), Cell(coords[2], res))
     a = Cell(coords[1], res)
     b = Cell(coords[2], res)
-    out = [a]
-    while true
-        a == b && break
-        for candidate in grid_ring_unsafe(a, 1)
-            if !GO.disjoint(geom, candidate)
-                a = candidate
-                push!(out, a)
-                break
-            end
-        end
+    out = grid_path_cells(a, b)  # grid_path_cells gives approximate line
+    # Now expand to include neighboring cells that the line crosses
+    shortest_path || for cell in out, candidate in cell
+        candidate in out && continue
+        GO.disjoint(geom, candidate) && continue
+        push!(out, candidate)
     end
-    return out
+    out
 end
 
-function cells(trait::GI.LineStringTrait, geom, res::Integer)
+function cells(trait::GI.LineStringTrait, geom, res::Integer; shortest_path=true)
     coords = GI.coordinates(trait, geom)
-    out = [Cell((coords[1]), res)]
-    for coord in @view coords[2:end]
-        c = Cell(coord, res)
-        path = grid_path_cells(out[end], c)
-        append!(out, path[2:end])
+    out = Cell[]
+    @views for (a,b) in zip(coords[1:end-1], coords[2:end])
+        line = GI.Line([a, b])
+        union!(out, cells(line, res; shortest_path=shortest_path))
     end
-    unique!(out)
+    return out
 end
 
 # Get H3.Lib.GeoPolygon from GeoInterface polygon

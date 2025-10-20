@@ -24,8 +24,7 @@ p
 
 ## LineString
 
-- Notice that the lines are not entirely covered by hexagons.  The `cells` function will create a
-shortest path between the two points and does not check intermediate points on the line.
+- By default, the `cells` function will create a shortest path between the cells that contain the two points of each line.  You can set `shortest_path=false` to include all hexagons that overlap the lines.
 
 
 ```@example geom
@@ -34,34 +33,16 @@ import GeoInterface as GI
 ls = GI.LineString([(0,0), (1,1), (-1,2)])
 
 x = cells(ls, 6)
+x2 = cells(ls, 6; shortest_path=false)
 
-p = lines(x)
-lines!(ls.geom)
-p
-```
-
-- The `cells` function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.
-
-```@example geom
-ls = GI.LineString([(0.0, 0.0), (1.0, 1.0), (-1.0, 2.0)])
-
-# Create linestring for polygon
-out = [
-    # Original points
-    GI.coordinates(ls)...,
-    # Reverse points with added noise
-    map(xy -> xy .+ .0000001, reverse(GI.coordinates(ls)))...,
-    # Close the loop
-    GI.coordinates(ls)[1]
-]
-shape = GI.Polygon([out])
-
-# include cells that have any overlapping part with the line
-x = cells(shape, 6, containment = :overlap)
-
-p = lines(x)
-lines!(ls)
-p
+fig = Figure()
+ax = Axis(fig[1,1], title="shortest_path = true")
+ax2 = Axis(fig[1,2], title="shortest_path = false")
+lines!(ax, x)
+lines!(ax, ls.geom)
+lines!(ax2, x2)
+lines!(ax2, ls.geom)
+fig
 ```
 
 ## (Multi)Polygon
