@@ -4,8 +4,6 @@
 
 ```@example geom
 using HexEarth, GeoMakie, CairoMakie, Rasters, RasterDataSources, ArchGDAL
-import GeoInterface as GI
-import GeometryOps as GO
 
 r = Raster(getraster(WorldClim{Elevation}).elev)
 
