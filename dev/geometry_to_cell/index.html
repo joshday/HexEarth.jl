@@ -13,7 +13,7 @@ x = cells(ls, 6)
 
 p = lines(x)
 lines!(ls.geom)
-p</code></pre><img src="15b04e6e.png" alt="Example block output"/><ul><li>With a polygon input, you have more control over how cells are added.  You can hack together a polygon from a linestring by adding some noise</li></ul><p>The <code>cells</code> function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.</p><pre><code class="language-julia hljs">ls = GI.LineString([(0.0, 0.0), (1.0, 1.0), (-1.0, 2.0)])
+p</code></pre><img src="15b04e6e.png" alt="Example block output"/><ul><li>The <code>cells</code> function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.</li></ul><pre><code class="language-julia hljs">ls = GI.LineString([(0.0, 0.0), (1.0, 1.0), (-1.0, 2.0)])
 
 # Create linestring for polygon
 out = [
@@ -42,8 +42,8 @@ obj = GeoJSON.read(file)
 function make_axis(i, j, res, containment)
     ax = Axis(fig[i, j], title=&quot;containment = $containment&quot;)
     x = cells(obj.geometry[1], res; containment)
-    lines!(ax, obj.geometry)
     lines!(ax, x)
+    lines!(ax, obj.geometry)
 end
 fig = Figure()
 make_axis(1, 1, 4, nothing)
@@ -51,7 +51,7 @@ make_axis(1, 2, 4, :center)
 make_axis(1, 3, 4, :full)
 make_axis(2, 1, 4, :overlap)
 make_axis(2, 2, 4, :overlap_bbox)
-fig</code></pre><img src="dd421487.png" alt="Example block output"/><h2 id="Extents"><a class="docs-heading-anchor" href="#Extents">Extents</a><a id="Extents-1"></a><a class="docs-heading-anchor-permalink" href="#Extents" title="Permalink"></a></h2><ul><li>Uses the same <code>containment</code> options as for (Multi)polygons.</li></ul><pre><code class="language-julia hljs">ex = GI.extent(obj)
+fig</code></pre><img src="31c1401b.png" alt="Example block output"/><h2 id="Extents"><a class="docs-heading-anchor" href="#Extents">Extents</a><a id="Extents-1"></a><a class="docs-heading-anchor-permalink" href="#Extents" title="Permalink"></a></h2><ul><li>Uses the same <code>containment</code> options as for (Multi)polygons.</li></ul><pre><code class="language-julia hljs">ex = GI.extent(obj)
 
 # for plotting
 x1, x2 = ex.X
@@ -62,7 +62,7 @@ linestring = GI.LineString([(x1,y1), (x1,y2), (x2,y2), (x2, y1), (x1,y1)])
 function make_axis(i, j, res, containment)
     ax = Axis(fig[i, j], title=&quot;containment = $containment&quot;)
     x = cells(ex, res; containment)
-    lines!(ax, obj.geometry)
+    # lines!(ax, obj.geometry)
     lines!(ax, linestring)
     lines!(ax, x)
 end
@@ -71,7 +71,7 @@ make_axis(1, 1, 4, :center)
 make_axis(1, 2, 4, :full)
 make_axis(2, 1, 4, :overlap)
 make_axis(2, 2, 4, :overlap_bbox)
-fig</code></pre><img src="46c18a81.png" alt="Example block output"/><h2 id="Rasters"><a class="docs-heading-anchor" href="#Rasters">Rasters</a><a id="Rasters-1"></a><a class="docs-heading-anchor-permalink" href="#Rasters" title="Permalink"></a></h2><ul><li>For rasters, <code>cells</code> returns <code>Dict{Cell, Vector{T}}</code> where <code>T</code> is the eltype of the raster.</li></ul><pre><code class="language-julia hljs">using Rasters, RasterDataSources, ArchGDAL
+fig</code></pre><img src="44f1385d.png" alt="Example block output"/><h2 id="Rasters"><a class="docs-heading-anchor" href="#Rasters">Rasters</a><a id="Rasters-1"></a><a class="docs-heading-anchor-permalink" href="#Rasters" title="Permalink"></a></h2><ul><li>For rasters, <code>cells</code> returns <code>Dict{Cell, Vector{T}}</code> where <code>T</code> is the eltype of the raster.</li></ul><pre><code class="language-julia hljs">using Rasters, RasterDataSources, ArchGDAL
 
 (; elev) = getraster(WorldClim{Elevation})
 
@@ -85,8 +85,8 @@ nc_elev = view(r_nc, nc_ext)
 
 x = cells(nc_elev, 4)
 
-poly(collect(keys(x)); color=maximum.(values(x)))</code></pre><img src="49bbef70.png" alt="Example block output"/><h3 id="Resolution-Issues"><a class="docs-heading-anchor" href="#Resolution-Issues">Resolution Issues</a><a id="Resolution-Issues-1"></a><a class="docs-heading-anchor-permalink" href="#Resolution-Issues" title="Permalink"></a></h3><ul><li>At higher <code>Cell</code> resolutions, you may end up with holes:</li></ul><pre><code class="language-julia hljs">x = cells(nc_elev, 5)
+poly(collect(keys(x)); color=maximum.(values(x)))</code></pre><img src="49bbef70.png" alt="Example block output"/><h3 id="Resolution-Issues"><a class="docs-heading-anchor" href="#Resolution-Issues">Resolution Issues</a><a id="Resolution-Issues-1"></a><a class="docs-heading-anchor-permalink" href="#Resolution-Issues" title="Permalink"></a></h3><ul><li>At higher <code>Cell</code> resolutions, you may end up with holes (cells for which no raster pixel is contained).</li></ul><pre><code class="language-julia hljs">x = cells(nc_elev, 5)
 
 poly(collect(keys(x)); color=maximum.(values(x)))</code></pre><img src="b52c2c9d.png" alt="Example block output"/><ul><li><code>cells</code> accepts a &quot;mask&quot; as a first argument which will:<ol><li>Create the cells based on the geometry.</li><li>Populate the cells&#39; data based on the raster.</li></ol></li><li>Cells that would otherwise have been empty will now use the nearest raster pixel.</li></ul><pre><code class="language-julia hljs">x = cells(obj.geometry[1], nc_elev, 5)
 
-poly(collect(keys(x)); color=maximum.(values(x)))</code></pre><img src="a33faa89.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../inspection/">Inspection »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 20 October 2025 00:48">Monday 20 October 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+poly(collect(keys(x)); color=maximum.(values(x)))</code></pre><img src="a33faa89.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../">« Home</a><a class="docs-footer-nextpage" href="../inspection/">Inspection »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Monday 20 October 2025 01:44">Monday 20 October 2025</span>. Using Julia version 1.12.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
