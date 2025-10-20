@@ -40,10 +40,7 @@ lines!(ls.geom)
 p
 ```
 
-- With a polygon input, you have more control over how cells are added.  You can hack together a
-  polygon from a linestring by adding some noise
-
-The `cells` function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.
+- The `cells` function has more control over how cells are placed for polygon inputs (see below).  You can hack together a polygon from a linestring by adding some noise to the points in reverse order and closing the loop.
 
 ```@example geom
 ls = GI.LineString([(0.0, 0.0), (1.0, 1.0), (-1.0, 2.0)])
@@ -86,8 +83,8 @@ obj = GeoJSON.read(file)
 function make_axis(i, j, res, containment)
     ax = Axis(fig[i, j], title="containment = $containment")
     x = cells(obj.geometry[1], res; containment)
-    lines!(ax, obj.geometry)
     lines!(ax, x)
+    lines!(ax, obj.geometry)
 end
 fig = Figure()
 make_axis(1, 1, 4, nothing)
@@ -114,7 +111,7 @@ linestring = GI.LineString([(x1,y1), (x1,y2), (x2,y2), (x2, y1), (x1,y1)])
 function make_axis(i, j, res, containment)
     ax = Axis(fig[i, j], title="containment = $containment")
     x = cells(ex, res; containment)
-    lines!(ax, obj.geometry)
+    # lines!(ax, obj.geometry)
     lines!(ax, linestring)
     lines!(ax, x)
 end
@@ -150,7 +147,7 @@ poly(collect(keys(x)); color=maximum.(values(x)))
 
 ### Resolution Issues
 
-- At higher `Cell` resolutions, you may end up with holes:
+- At higher `Cell` resolutions, you may end up with holes (cells for which no raster pixel is contained).
 
 ```@example geom
 x = cells(nc_elev, 5)

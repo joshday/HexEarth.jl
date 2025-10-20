@@ -4,7 +4,6 @@ import Rasters: AbstractRaster, X, Y, At, Near
 import HexEarth: cells, Cell
 import GeoInterface as GI
 
-
 function cells(r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
     out = dropmissing ? Dict{Cell, Vector{Base.nonmissingtype(T)}}() : Dict{Cell, Vector{T}}()
 

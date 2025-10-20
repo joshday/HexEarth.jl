@@ -1,6 +1,6 @@
 name = "HexEarth"
 uuid = "b6c1dbec-f0b9-46a4-b02d-37702cdd07ef"
-version = "1.0.0-DEV"
+version = "0.0.1"
 authors = ["Josh Day <emailjoshday@gmail.com> and contributors"]
 
 [deps]
