@@ -1,36 +1,34 @@
 module HexEarthRastersExt
 
-import Rasters: AbstractRaster, X, Y, At, Near
-import HexEarth: cells, Cell
+import Rasters: AbstractRaster, X, Y, At, Near, dims
+import HexEarth: cells, bind, Cell
 import GeoInterface as GI
 
-function cells(r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
-    out = dropmissing ? Dict{Cell, Vector{Base.nonmissingtype(T)}}() : Dict{Cell, Vector{T}}()
+function cells(r::AbstractRaster{T, 2}, res::Integer = 10; dropmissing = true, containment = :overlap) where {T}
+    # Step 1) Initialize output hexagons to cover the extent of the raster
+    all_cells = cells(GI.extent(r), res; containment)
+    S = dropmissing ? Base.nonmissingtype(T) : T
+    out = Dict(c => S[] for c in all_cells)
 
+    # Step 2) Iterate through the raster and populate hexagons
     for lon in r.dims[1], lat in r.dims[2]
         val = r[X(At(lon)), Y(At(lat))]
-        if !(dropmissing && ismissing(val))
-            cell = Cell((lon, lat), res)
-            v = get!(out, cell, T[])
-            push!(v, val)
-        end
+        cell = Cell((lon, lat), res)
+        v = get!(out, cell, T[])  # get! is required depending on containment mode
+        (!ismissing(val) || !dropmissing) && push!(v, val)
     end
-    return out
-end
 
-function cells(mask, r::AbstractRaster{T, 2}, res::Integer; dropmissing::Bool = true) where {T}
-    x = cells(mask, res)
-    out = Dict{Cell, Vector{T}}()
-    for cell in x
-        lon, lat = GI.centroid(cell)
-        val = r[X(Near(lon)), Y(Near(lat))]
-        v = get!(out, cell, T[])
-        if ismissing(val) && dropmissing
-            delete!(out, cell)
-        else
-            push!(v, val)
+    # Step 3) For cells without data, find the closest point from the raster
+    for (k, v) in out
+        if isempty(v)
+            lon, lat = GI.centroid(k)
+            val = r[X(Near(lon)), Y(Near(lat))]
+            (!ismissing(val) || !dropmissing) && push!(v, val)
         end
     end
+
+    # Step 4) drop empty vectors (only happens for missing values)
+    dropmissing && filter!(kv -> !isempty(kv[2]), out)
     return out
 end
 

@@ -15,7 +15,7 @@ import H3.Lib: LatLng
 
 export
     Cell, Vertex, DirectedEdge,
-    cells, ring, grid_distance, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
+    cells, datacells, ring, grid_distance, resolution, is_cell, is_vertex, is_directed_edge, is_pentagon
 
 #-----------------------------------------------------------------------------# Notes
 # In this package:
@@ -186,8 +186,18 @@ Base.getindex(o::Cell, i::Integer, j::Integer, k::Integer) = GridIJK(o)[i, j, k]
 #-----------------------------------------------------------------------------# cells (geom-to-Vector{Cell})
 """
     cells(geometry, res = 10)
+    cells(polygon, res = 10; containment = nothing)
+    cells(raster, res = 10; dropmissing = true, dropempty = true, containment = :overlap)
 
 Return a `Vector{Cell}` covering the given geometry at the specified H3 resolution (default 10).
+
+- (Multi)polygons allow specifying a `containment` mode:
+    - `nothing`: (default) use libh3's default polygonToCells behavior (we think this is equivalent to `:center`)
+    - `:center`: include cells whose center point is within the polygon
+    - `:full`: include cells fully contained within the polygon
+    - `:overlap`: include cells that overlap the polygon at all
+    - `:overlap_bbox`: include cells that overlap the polygon's bounding box
+- Rasters (requires Rasters.jl to be loaded) 
 """
 cells(geom, res::Integer = 10; kw...) = cells(GI.trait(geom), geom, res; kw...)
 

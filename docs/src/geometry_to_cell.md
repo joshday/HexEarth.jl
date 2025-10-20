@@ -145,23 +145,15 @@ x = cells(nc_elev, 4)
 poly(collect(keys(x)); color=maximum.(values(x)))
 ```
 
-### Resolution Issues
+- At high resolutions, note that the original raster is closely preserved
 
-- At higher `Cell` resolutions, you may end up with holes (cells for which no raster pixel is contained).
-
-```@example geom
-x = cells(nc_elev, 5)
-
-poly(collect(keys(x)); color=maximum.(values(x)))
-```
-
-- `cells` accepts a "mask" as a first argument which will:
-  1.  Create the cells based on the geometry.
-  2.  Populate the cells' data based on the raster.
-- Cells that would otherwise have been empty will now use the nearest raster pixel.
 
 ```@example geom
-x = cells(obj.geometry[1], nc_elev, 5)
+fig = Figure()
+x = cells(nc_elev, 8)
 
-poly(collect(keys(x)); color=maximum.(values(x)))
+poly!(Axis(fig[1,1], title="cells"), collect(keys(x)); color=maximum.(values(x)), strokewidth=0)
+plot!(Axis(fig[2,1], title="original"), nc_elev)
+linkaxes!(fig.content...)
+fig
 ```
