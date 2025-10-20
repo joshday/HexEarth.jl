@@ -12,7 +12,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Geometry to Cells" => "geometry_to_cell.md",
-        "Inspection" => "inspection.md",
+        "Inspection and Indexing" => "inspection.md",
         "API" => "api.md"
     ]
 )
