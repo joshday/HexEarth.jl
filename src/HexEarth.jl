@@ -345,7 +345,6 @@ Base.show(io::IO, o::GridIJK) = print(io, styled"GridIJK - origin: $(o.origin)")
 function Base.getindex(grid::GridIJK, i::Integer, j::Integer, k::Integer)
     coord = API.CoordIJK(i + grid.ijk.i, j + grid.ijk.j, k + grid.ijk.k)
     res = API.localIjkToCell(grid.origin.index, coord)
-    @info res
     res isa Union{H3.API.H3ErrorCode, H3.API.H3Error} ?
         error(H3.API.describeH3Error(res)) :
         Cell(res)

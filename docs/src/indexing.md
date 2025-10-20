@@ -1,27 +1,9 @@
-# Inspection
+# Indexing
 
-
-```@repl inspect
-using HexEarth, CairoMakie
-import GeoInterface as GI
-
-new_york = (-75.0, 43.0)
-
-cell = Cell(new_york, 10)
-
-resolution(cell)
-
-HexEarth.area(cell)
-
-# See https://h3geo.org/docs/core-library/h3Indexing
-HexEarth.split_index(cell.index)
-
-GI.extent(cell)
-```
-
-## Indexing
-
-- HexEarth uses several different `getindex` methods.
+- Cells are uniquely identified by a `UInt64` *index*.  The only global indexing system is through these values.
+  - You can create cells from its index or from coordinates that are contained in the cell: `Cell(index)` or `Cell((lon, lat), res=10)`.
+- However, H3 supports several other indexing systems that are valid within a single face of the icosahedron.
+- HexEarth uses several different `getindex` methods to expose these indexing systems.
 
 !!! important "Index Ordering"
     Index ordering is not consistent.  I.e. there are no directional guarantees as to where `cell[1]` is
