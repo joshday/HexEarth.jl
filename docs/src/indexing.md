@@ -10,6 +10,12 @@
     relative to `cell`.
 
 ```@repl inspect
+using HexEarth
+
+new_york = (-74, 40.7)
+
+cell = Cell(new_york)
+
 cell[1]  # spiral indexing (1-6) for immediate neighbors
 
 cell[0, 1]  # https://h3geo.org/docs/core-library/coordsystems#local-ij-coordinates
@@ -20,6 +26,9 @@ cell[0, 1, 0]  # https://h3geo.org/docs/core-library/coordsystems#ijk-coordinate
 ### Spiral Indexing
 
 ```@example inspect
+import GeoInterface as GI
+using CairoMakie
+
 fig = Figure()
 ax = Axis(fig[1,1])
 poly!(ax, cell)
