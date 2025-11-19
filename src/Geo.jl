@@ -9,9 +9,17 @@ export haversine, destination, bearing, point2extent
 # angles in degrees
 # coordinate order is (lon, lat)
 
-#-----------------------------------------------------------------------------# R (earth radius)
-"Approximate radius of the earth in meters (WGS84)."
-const R = 6_371_000
+#-----------------------------------------------------------------------------# constants
+const R = 6_371_000  # Approximate radius of the earth in meters (WGS84)
+const A = 6_378_137  # Equitorial radius (semi-major axis) of the earth (WGS84)
+const B = 6_356_752  # Polar radius (semi-minor axis) of the earth (WGS84)
+const F = 1 - (B // A)  # flattening
+const E2 = 1 - A ^ 2 // B ^ 2  # first eccentricity squared
+const E′2 = A ^ 2 // B ^ 2 - 1  # second eccentricity squared
+
+# https://en.wikipedia.org/wiki/Earth_radius#Prime_vertical
+# This is used in LLA -> ECEF conversion
+prime_vertical_radius(lat) = A ^ 2 / sqrt(A ^ 2 * cosd(lat) ^ 2 + B ^ 2 * sind(lat) ^ 2)
 
 #-----------------------------------------------------------------------------# haversine
 """

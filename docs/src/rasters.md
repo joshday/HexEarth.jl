@@ -8,7 +8,7 @@ using HexEarth, GeoMakie, CairoMakie, Rasters, RasterDataSources, ArchGDAL
 
 r = Raster(getraster(WorldClim{Elevation}).elev)
 
-dict = cells(r, 2)
+@time dict = cells(r, 2)
 
 # remove hexagons overlapping 180° longitude to avoid plotting
 # horizontal "stripes" across the map

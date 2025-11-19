@@ -222,8 +222,6 @@ function cells(trait::GI.MultiPointTrait, geom, res::Integer)
     unique!(Cell.(GI.coordinates(trait, geom), res))
 end
 
-ϵ::Float64 = 1e-6
-
 function cells(trait::GI.LineTrait, geom, res::Integer; shortest_path = true)
     coords = GI.coordinates(trait, geom)
     a = Cell(coords[1], res)
